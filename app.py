@@ -45,11 +45,11 @@ app.layout = html.Div([
             'width': '100%',
             'height': '60px',
             'lineHeight': '60px',
-            'borderWidth': '1px',
             'borderStyle': 'dashed',
-            'borderRadius': '5px',
+            'borderRadius': '10px',
             'textAlign': 'center',
-            'margin': '10px'
+            'margin': '10px',
+            'padding': '10px 20px'
         },
         # Allow multiple files to be uploaded
         multiple=True
@@ -153,4 +153,4 @@ def download_csv():
     return Response(generate(), mimetype = 'text/csv')
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0',debug=True, port=8050)

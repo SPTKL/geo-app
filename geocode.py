@@ -6,4 +6,10 @@ def geocode(hnum, sname, boro, columns, mode='api'):
     url_prefix = 'https://geosupport.planninglabs.nyc/1B?'
     url = f'{url_prefix}house_number={hnum}&street_name={sname}&borough_code={boro}'
     content = json.loads(requests.get(url).content)
-    return {key:content[key] for key in columns}
+    result = {}
+    for key in columns:
+        try: 
+            result[key] = content[key]
+        except:
+            result[key] = ''
+    return result
