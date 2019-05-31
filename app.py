@@ -42,14 +42,14 @@ app.layout = html.Div([
             html.A('Select Files')
         ]),
         style={
-            'width': '100%',
+            'width': '95%',
             'height': '60px',
             'lineHeight': '60px',
             'borderStyle': 'dashed',
             'borderRadius': '10px',
             'textAlign': 'center',
             'margin': '10px',
-            'padding': '10px 20px'
+            'padding': '20px 20px'
         },
         # Allow multiple files to be uploaded
         multiple=True
@@ -63,63 +63,125 @@ def parse_contents(contents, opt, filename, date):
 
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
+    r.set(session_id, decoded)
 
     try:
         if 'csv' in filename:
-            # Assume that the user uploaded a CSV file
-            df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-            df_sample = df[0:5]
-        elif 'xls' in filename:
-            # Assume that the user uploaded an excel file
-            df = pd.read_excel(io.BytesIO(decoded))
+            file = io.StringIO(decoded.decode('utf-8-sig'))
+            column_names = file.readline().strip().split(',')
+            column_options = [{'label': i, 'value': i} for i in column_names]
     except Exception as e:
         return html.Div([
-            'There was an error processing this file.'
+            'file not supported'
         ])
-
-    DATA = []
-    for i in df.to_dict('records'):
-        results = geocode(i['house_number'],i['street_name'],
-                        i['borough_code'], mode='api', columns=opt)
-        DATA.append(results)
-    r.set(session_id, json.dumps(DATA))
-
+    
     return html.Div([
+        html.H4('identify location indicators:'), 
         html.Div(session_id, id='session-id', style={'display': 'none'}),
-        html.H5(f'File name: {filename}'),
-        html.H6(f'Last edit: {datetime.datetime.fromtimestamp(date)}'),
+        dcc.Dropdown(
+            id='hnum',
+            options=column_options,
+            multi=False,
+            placeholder="Select house number"), 
 
-        dash_table.DataTable(
-            data=DATA[0:5],
-            columns=[{'name': i, 'id': i} for i in opt],
-            style_table={'overflowX': 'scroll',
-                         'maxHeight': '300px',
-                         'overflowY': 'scroll',
-                         'border': 'thin lightgrey solid'},
-            editable=True,
-            n_fixed_rows=1,
-        ),
+        dcc.Dropdown(
+            id='sname',
+            options=column_options,
+            multi=False,
+            placeholder="Select street name"), 
 
-        html.Hr(),  # horizontal line
+        dcc.Dropdown(
+            id='boro',
+            options=column_options,
+            multi=False,
+            placeholder="Select borough"),
+        
+        html.Button('Generate Preview', id='preview'),
+        html.Div(id='output-preview'),
 
-        html.Div(children=[
-                html.A(id = 'download-link', children=[
-                        html.Button('Download',
-                            id='submit',
-                            type='submit',
-                            className='button-primary')
-                        ])
-                ], style={'padding': '20px 20px 20px 20px'}),
-
-        html.Hr(),
-        # For debugging, display the raw contents provided by the web browser
-        html.Div('Raw Content'),
-        html.Pre(contents[0:200] + '...', style={
-            'whiteSpace': 'pre-wrap',
-            'wordBreak': 'break-all'
-        })
     ])
 
+
+    # DATA = []
+    # for i in df.to_dict('records'):
+    #     results = geocode(i['house_number'],i['street_name'],
+    #                     i['borough_code'], mode='api', columns=opt)
+    #     DATA.append(results)
+    # r.set(session_id, json.dumps(DATA))
+
+    # return html.Div([
+    #     html.Div(session_id, id='session-id', style={'display': 'none'}),
+    #     html.H5(f'File name: {filename}'),
+    #     html.H6(f'Last edit: {datetime.datetime.fromtimestamp(date)}'),
+
+    #     dash_table.DataTable(
+    #         data=df.to_dict('record'),
+    #         columns=[{'name': i, 'id': i} for i in opt],
+    #         style_table={'overflowX': 'scroll',
+    #                      'maxHeight': '300px',
+    #                      'overflowY': 'scroll',
+    #                      'border': 'thin lightgrey solid'},
+    #         editable=True,
+    #         n_fixed_rows=1,
+    #     ),
+
+    #     html.Hr(),  # horizontal line
+
+    #     html.Div(children=[
+    #             html.A(id = 'download-link', children=[
+    #                     html.Button('Download',
+    #                         id='submit',
+    #                         type='submit',
+    #                         className='button-primary')
+    #                     ])
+    #             ], style={'padding': '20px 20px 20px 20px'}),
+
+    #     html.Hr(),
+    #     # For debugging, display the raw contents provided by the web browser
+    #     html.Div('Raw Content'),
+    #     html.Pre(contents[0:200] + '...', style={
+    #         'whiteSpace': 'pre-wrap',
+    #         'wordBreak': 'break-all'
+    #     })
+    # ])
+@app.callback(Output('output-preview', 'children'),
+              [Input('preview', 'n_clicks')],
+              [State('select', 'value'),
+              State('hnum', 'value'),
+              State('sname', 'value'),
+              State('boro', 'value'),
+              State('session-id', 'children')])
+def generate_preview(nclicks, opt, hnum, sname, boro, session_id):
+    decoded = r.get(session_id)
+    file = io.StringIO(decoded.decode('utf-8-sig'))
+    df = pd.read_csv(file, nrows=5)
+    if nclicks:
+        DATA = []
+        for i in df.to_dict('records'):
+            results = geocode(i[hnum],i[sname],
+                            i[boro], mode='api', columns=opt)
+            DATA.append(results)
+        return html.Div([
+            dash_table.DataTable(
+                data=DATA,
+                columns=[{'name': i, 'id': i} for i in opt],
+                style_table={'overflowX': 'scroll',
+                            'maxHeight': '300px',
+                            'overflowY': 'scroll',
+                            'border': 'thin lightgrey solid'},
+                editable=True,
+                n_fixed_rows=1,
+            ), 
+            html.A(
+                id = 'download-link', children = [ 
+                html.Button(
+                    'Geocode All and Download',
+                    id='submit',
+                    type='submit',
+                    className='button-primary')
+                ])
+        ])
+    else: pass
 
 @app.callback(Output('output-data-upload', 'children'),
               [Input('upload-data', 'contents')],
@@ -135,22 +197,42 @@ def update_output(list_of_contents, opt, list_of_names, list_of_dates):
 
 @app.callback(
     Output('download-link', 'href'),
-    [Input('session-id', 'children')])
-def get_data(session_id):
-    return f'/download.csv?session_id={session_id}'
+    [Input('submit', 'n_clicks')], 
+    [State('select', 'value'),
+    State('hnum', 'value'),
+    State('sname', 'value'),
+    State('boro', 'value'),
+    State('session-id', 'children')])
+def generate_download_link(nclicks, opt, hnum, sname, boro, session_id):
+    if nclicks:
+        return f'/download.csv?opt={opt}&hnum={hnum}&sname={sname}&boro={boro}&session_id={session_id}'
 
 @server.route('/download.csv')
 def download_csv():
+    opt = request.args.getlist('opt')
+    if type(opt) == list:
+        print('yes')
+    else: print('no')
+    hnum = request.args.get('hnum')
+    sname = request.args.get('sname')
+    boro = request.args.get('boro')
     session_id = request.args.get('session_id')
-    def generate():
-        i = 0
-        for row in json.loads(r.get(session_id)):
-            print(row)
-            if i == 0:
-                yield ','.join(str(i) for i in row.keys()) + '\n'
-                i += 1
-            yield ','.join(str(x) for x in row.values()) + '\n'
-    return Response(generate(), mimetype = 'text/csv')
+    decoded = r.get(session_id)
+    file = io.StringIO(decoded.decode('utf-8-sig'))
+    df = pd.read_csv(file)
+    DATA = []
+    # for i in df.to_dict('records'):
+    #     results = geocode(i[hnum],i[sname],
+    #                     i[boro], mode='api', columns=opt)
+    #     DATA.append(results)
+    # def generate():
+    #     i = 0
+    #     for row in DATA:
+    #         if i == 0:
+    #             yield ','.join(str(i) for i in row.keys()) + '\n'
+    #             i += 1
+    #         yield ','.join(str(x) for x in row.values()) + '\n'
+    # return Response(generate(), mimetype = 'text/csv')
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0',debug=True, port=8050)
+    app.run_server(debug=True)

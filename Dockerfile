@@ -6,7 +6,11 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-RUN pip install -r requirements.txt
+# RUN pip install -r requirements.txt
+RUN pip install --upgrade pip\
+    && pip install dash redis flask gunicorn
+
+RUN pip install pandas
 
 EXPOSE 8050
 
