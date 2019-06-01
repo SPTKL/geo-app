@@ -6,11 +6,13 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-# RUN pip install -r requirements.txt
-RUN pip install --upgrade pip\
-    && pip install dash redis flask gunicorn
+RUN echo "http://dl-8.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
 
-RUN pip install pandas
+RUN pip3 install --upgrade pip
+
+RUN pip3 install --no-cache-dir dash redis flask gunicorn
+
+RUN pip3 install --no-cache-dir pandas
 
 EXPOSE 8050
 
