@@ -1,5 +1,7 @@
 # The Littlest Web-GBAT
 
+![](preview.gif)
+
 ## Instructions: 
 - start redis service:
     - `docker run --name dash-cache -p 6379:6379 -d redis redis-server --appendonly yes`
